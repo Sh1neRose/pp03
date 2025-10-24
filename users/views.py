@@ -1,34 +1,52 @@
-from django.shortcuts import render, redirect
-from django.views import View
-from .forms import CustomUserCreationForm, CustomUserLogin
-from django.contrib.auth import login, logout
+from django.contrib.auth import get_user_model, login
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework import viewsets, status
+from .serializers import UserCreateSerializer, UserSerializer, UserLoginSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
-class register(View):
-    def get(self, request):
-        form = CustomUserCreationForm()
-        return render(request, 'users/register.html',{
-            'form': form,
-        })
-    def post(self, request):
-        form = CustomUserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            return redirect('users:register')
-        
-class login_view(View):
-    def get(self, request):
-        form = CustomUserLogin()
-        return render(request, 'users/login.html',{
-            'form': form,
-        })
-    def post(self, request):
-        form = CustomUserLogin(request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+User = get_user_model()
 
-class logout_view(View):
-    def get(self, request):
-        logout(request)
-        return redirect('users:register')
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return UserCreateSerializer
+        if self.action == 'login':
+            return UserLoginSerializer
+        return UserSerializer
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        refresh = RefreshToken.for_user(user)
+        response_data = {
+            'user': UserSerializer(user).data,
+            'tokens': {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token)
+            }
+        }
+        return Response(response_data, status=status.HTTP_201_CREATED)
+    
+    @action(
+            methods=['post'],
+            detail=False,
+            url_path='login',
+            )
+    def login(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        login(request, user)
+        refresh = RefreshToken.for_user(user)
+        response_data = {
+            'user': UserSerializer(user).data,
+            'tokens': {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token)
+            }
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
