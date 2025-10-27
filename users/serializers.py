@@ -27,7 +27,7 @@ class UserCreateSerializer(UserSerializer):
         user = User.objects.create_user(password=password, **validated_data)
         return user
     
-class UserLoginSerializer(serializers.Serializer):
+class GetConfirmationCodeSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True)
 
@@ -39,3 +39,13 @@ class UserLoginSerializer(serializers.Serializer):
             raise serializers.ValidationError('Не верные данные')
         attrs['user'] = user
         return attrs
+    
+class LoginSerializer(serializers.Serializer):
+    auth_code = serializers.CharField(
+        required=True,
+        max_length=6,
+        min_length=6
+        )
+    email = serializers.EmailField(
+        required=True
+        )
