@@ -47,3 +47,12 @@ class CustomUser(AbstractUser):
             value = getattr(self, field)
             if value:
                 setattr(self, field, strip_tags(value))
+
+class LoginCode(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="login_codes")
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user}{self.code}"
